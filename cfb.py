@@ -1,23 +1,27 @@
 import torch
 import torch.nn as nn
-
+    
 class FootballNet(nn.Module):
     def __init__(self, input_size, hidden_size, dropout):
         super(FootballNet, self).__init__()
         self.network = nn.Sequential(
-            nn.Linear(input_size, hidden_size),
+            nn.Linear(input_size, 256),
             nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_size, hidden_size),
+            nn.BatchNorm1d(256),
+            nn.Dropout(0.3),
+            nn.Linear(256, 128),
             nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_size, 2)
-        )
+            nn.BatchNorm1d(128),
+            nn.Dropout(0.3),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, 2)
+)
+
 
     def forward(self, x):
         return self.network(x)
-
-
+    
 
 class MultiObjectiveLoss(nn.Module):
     def __init__(self, alpha=0.6):
@@ -30,4 +34,5 @@ class MultiObjectiveLoss(nn.Module):
         score_diff_true = targets[:, 0] - targets[:, 1]
         diff_loss = ((score_diff_pred - score_diff_true) ** 2).mean()
         return self.alpha * mse_loss + (1 - self.alpha) * diff_loss
+
 
