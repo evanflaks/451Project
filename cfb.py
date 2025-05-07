@@ -2,26 +2,58 @@ import torch
 import torch.nn as nn
     
 class FootballNet(nn.Module):
-    def __init__(self, input_size, hidden_size, dropout):
-        super(FootballNet, self).__init__()
+    def __init__(self, input_size, hidden_size=128, dropout=0.3):
+        super().__init__()
         self.network = nn.Sequential(
-            nn.Linear(input_size, 256),
+            nn.Linear(input_size, hidden_size * 2),     # e.g. 256 if hidden_size=128
             nn.ReLU(),
-            nn.BatchNorm1d(256),
-            nn.Dropout(0.3),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.BatchNorm1d(128),
-            nn.Dropout(0.3),
-            nn.Linear(128, 64),
-            nn.ReLU(),
-            nn.Linear(64, 2)
-)
+            nn.BatchNorm1d(hidden_size * 2),
+            nn.Dropout(dropout),
 
+            nn.Linear(hidden_size * 2, hidden_size),
+            nn.ReLU(),
+            nn.BatchNorm1d(hidden_size),
+            nn.Dropout(dropout),
+
+            nn.Linear(hidden_size, hidden_size // 2),   # e.g. 64 if hidden_size=128
+            nn.ReLU(),
+
+            nn.Linear(hidden_size // 2, 2)              # output layer for [home_score, away_score]
+)
 
     def forward(self, x):
         return self.network(x)
+
     
+
+class FootballNetSplit(nn.Module):
+    def __init__(self, input_dim_home, input_dim_away, hidden=128, dropout=0.2):
+        super().__init__()
+        self.home_net = nn.Sequential(
+            nn.Linear(input_dim_home, hidden),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+        )
+        self.away_net = nn.Sequential(
+            nn.Linear(input_dim_away, hidden),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+        )
+        self.merge = nn.Sequential(
+            nn.Linear(hidden * 2, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, 2)
+        )
+
+    def forward(self, x):
+        home_x = x[:, :self.home_net[0].in_features]
+        away_x = x[:, self.home_net[0].in_features:]
+        home_out = self.home_net(home_x)
+        away_out = self.away_net(away_x)
+        combined = torch.cat([home_out, away_out], dim=1)
+        return self.merge(combined)
+
+
 
 class MultiObjectiveLoss(nn.Module):
     def __init__(self, alpha=0.6):
